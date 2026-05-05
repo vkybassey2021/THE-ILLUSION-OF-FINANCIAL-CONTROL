@@ -1,0 +1,415 @@
+---
+title: 'The Illusion of Financial Control: Literacy, Overconfidence and Financial
+  Vulnerability in Italy'
+author: "VICTORIA BASSEY -948253"
+date: "2026-05-04"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+## -1.1. We first load the raw survey data and inspect its basic structure. This allows us to confirm that R reads the dataset correctly before creating any project variables.
+
+```{r}
+library(tidyverse)
+
+data_raw <- read.csv("Database_ENG.csv")
+
+dim(data_raw)
+
+names(data_raw)
+
+head(data_raw)
+```
+
+## -1.2. Using the codebook, we rename and understand key variables 
+
+```{r}
+data_named <- data_raw %>%
+  rename(
+    gender = qd1,
+    age = qd7,
+    income = qd13,
+    
+    shock_ability = qf4,
+    financial_difficulty = qf11,
+    survival_capacity = qf13,
+    
+    self_assessed_knowledge = qk1,
+    inflation_knowledge = qk3,
+    interest_knowledge = qk5,
+    compound_interest_knowledge = qk6
+  )
+
+names(data_named)
+```
+
+```{r}
+names(data_named)
+```
+4,862 observations (people)
+219 variables 
+The dataset was successfully transformed from a purely coded structure into a partially interpretable format. Key variables relevant to the analysis were renamed using the official data description provided by the Bank of Italy. In particular, demographic variables such as gender, age, and income were identified and labeled, alongside core indicators of financial vulnerability, including the ability to face unexpected expenses, financial difficulty, and the capacity to survive without income.
+
+Additionally, selected variables capturing financial knowledge were renamed to reflect their actual meaning, such as knowledge of inflation and interest rates. However, a large number of variables remain coded (e.g., qf*, qp*, qs*), reflecting the complex structure of the survey instrument.
+
+This step confirms two important aspects of the dataset. First, the data are rich and multidimensional, covering demographics, behaviours, knowledge, and attitudes. Second, the dataset requires careful selection and interpretation, as not all variables are immediately usable without further processing. Therefore, subsequent steps will focus on isolating a subset of variables that are directly relevant to the research question, while ensuring that their meaning is clearly understood through the codebook.
+
+## - 1.3. At this stage, we reduce the dataset to a subset of variables that are conceptually aligned with the research objective. The selection focuses on four dimensions: demographic characteristics, financial vulnerability, financial knowledge, and digital financial engagement. This step ensures that subsequent analysis remains targeted and interpretable, avoiding unnecessary complexity from the full set of survey variables.
+
+```{r}
+data_selected <- data_named %>%
+  select(
+    gender, age, income,
+    shock_ability, financial_difficulty, survival_capacity,
+    self_assessed_knowledge, inflation_knowledge, interest_knowledge, compound_interest_knowledge,
+    starts_with("qk7"),
+    starts_with("qp8"),
+    starts_with("qp9")
+  )
+
+dim(data_selected)
+```
+The dataset was successfully reduced from its original structure of 219 variables to a more focused subset of 28 variables relevant to the research question. Importantly, the number of observations remains unchanged (4,862 individuals), ensuring that no information is lost at the unit level.
+
+This reduction reflects a deliberate selection strategy based on conceptual relevance rather than technical convenience. The retained variables capture four key dimensions of the analysis: demographic characteristics (e.g., age, gender, income), financial vulnerability (e.g., ability to face unexpected expenses, financial difficulty, and survival capacity), financial knowledge (both self-assessed and objective), and digital financial engagement.
+
+By narrowing the dataset in this way, the analysis becomes more transparent and aligned with the research objective. At the same time, the richness of the original survey is preserved through the inclusion of multiple indicators for each dimension, allowing for a more nuanced examination of financial capability and vulnerability.
+
+
+## - 1.4. Data Cleaning: The dataset includes special codes representing non-responses, such as “don’t know”, “refused”, or “not applicable”. These values do not correspond to meaningful numerical outcomes and cannot be interpreted within the context of financial behaviour or vulnerability. To ensure the validity of the analysis, these responses are converted into standard missing values. This allows statistical procedures to correctly exclude them without distorting results, while acknowledging that they may reflect underlying uncertainty or disengagement.
+
+```{r}
+data_clean <- data_selected %>%
+  mutate(across(everything(), ~ na_if(., -99))) %>%
+  mutate(across(everything(), ~ na_if(., -98))) %>%
+  mutate(across(everything(), ~ na_if(., -97))) %>%
+  mutate(across(everything(), ~ na_if(., -999)))
+
+sum(data_clean == -99, na.rm = TRUE)
+sum(data_clean == -98, na.rm = TRUE)
+sum(data_clean == -97, na.rm = TRUE)
+sum(data_clean == -999, na.rm = TRUE)
+
+summary(data_clean)
+```
+The cleaning process was successfully applied across the dataset. All special coded values representing non-responses (such as -99, -98, -97, and -999) have been fully removed and replaced with standard missing values (NA), as confirmed by the zero counts.
+
+The summary statistics indicate that the dataset now contains valid numerical ranges for all variables, with missing values appropriately recorded. This ensures that subsequent analysis will not be distorted by invalid codes and that missing data can be handled consistently using statistical methods.
+
+
+### - 1.5. Missingness Analysis- To guide the data cleaning process, we examine the proportion of missing values across all variables. This allows us to identify variables with excessive missingness that may compromise the reliability of the analysis. By computing the percentage of missing observations for each variable, we can make a structured and defensible decision about which variables to retain and which to exclude.
+
+
+```{r}
+missing_summary <- data_clean %>%
+  summarise(across(everything(), ~ mean(is.na(.)) * 100)) %>%
+  pivot_longer(cols = everything(),
+               names_to = "variable",
+               values_to = "missing_percent") %>%
+  arrange(desc(missing_percent))
+
+missing_summary
+```
+
+The missingness analysis reveals that several variables contain a substantial proportion of missing values, with some exceeding 30–40%. Notably, variables such as qk7_6, qk7_3, and qk7_4 exhibit particularly high levels of missingness.
+
+However, variable removal is not based solely on missingness thresholds. Instead, decisions are guided by the relevance of each variable to the research objective.
+
+Variables that are not central to the construction of financial capability, digital engagement, or financial vulnerability—such as the qk7_* series—can be excluded without compromising the analysis. In contrast, variables such as income, interest_knowledge, and compound_interest_knowledge, despite having missing values, are retained due to their conceptual importance.
+
+This approach ensures that the dataset remains both analytically robust and aligned with the study’s objectives.
+
+### -1.6. Based on the missingness analysis and the relevance of variables to the research objective, variables with high missingness that do not contribute directly to the measurement of financial capability, digital engagement, or financial vulnerability are excluded.
+
+```{r}
+data_clean2 <- data_clean %>%
+  select(-starts_with("qk7_"))
+dim(data_clean2)
+```
+
+After removing the qk7_* variables, the dataset now contains 4,862 observations and 22 variables. This reduction improves data quality by eliminating variables with high missingness that are not central to the analysis, while preserving all key variables required to construct financial capability, digital engagement, and financial vulnerability.
+
+The dataset is now in a suitable form for constructing the core analytical variables in a structured and consistent manner.
+
+
+## - 1.7. Building Indices - i. We construct a composite financial vulnerability index using key indicators that capture individuals’ ability to cope with financial shocks, their level of financial difficulty, and their financial resilience.The variables are first aligned so that higher values consistently represent greater vulnerability, and then combined into a single index using an average. This provides a standardized measure of financial vulnerability across individuals.
+
+```{r}
+data_clean2$survival_reversed <- 6 - data_clean2$survival_capacity
+
+data_clean2$financial_vulnerability_index <- rowMeans(
+  data_clean2[, c(
+    "shock_ability",
+    "financial_difficulty",
+    "survival_reversed"
+  )],
+  na.rm = TRUE
+)
+
+summary(data_clean2$financial_vulnerability_index)
+```
+The financial vulnerability index shows a reasonable distribution, with values ranging from 0 to 5. Higher values indicate greater financial vulnerability.
+
+The average level of vulnerability is relatively low (mean ≈ 1.07), suggesting that most individuals in the sample are not highly vulnerable, although there is meaningful variation across respondents.
+
+The presence of some missing values reflects incomplete responses across the underlying components, but the index remains suitable for analysis due to the use of averaging across available information.
+
+This index provides a comprehensive measure of financial vulnerability, combining short-term financial stress and longer-term resilience.
+
+### - 1.7ii. To better visualise the distribution of financial vulnerability, we present a coloured histogram that highlights the concentration of individuals across different vulnerability levels.
+
+```{r}
+ggplot(data_clean2, aes(x = financial_vulnerability_index)) +
+  geom_histogram(bins = 30, fill = "#2C7FB8", color = "white") +
+  labs(title = "Distribution of Financial Vulnerability",
+       x = "Financial Vulnerability Index",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+Figure A shows the distribution of financial vulnerability across respondents. The distribution reveals that a large proportion of individuals cluster around moderate levels of vulnerability, with fewer individuals experiencing very high levels. This indicates that financial vulnerability is not limited to a small segment of the population but is instead a widespread condition. This observation provides an important starting point for the analysis, motivating the need to examine whether financial capability plays a protective role.
+
+
+### - 1.7iii.  Build Financial Knowledge - To measure objective financial knowledge, we convert survey responses into binary indicators reflecting whether each respondent answered correctly. Each knowledge variable is recoded into a value of 1 for a correct answer and 0 otherwise. These indicators are then combined into an index representing overall financial literacy. This approach ensures that the measure reflects true knowledge rather than categorical response codes.
+
+```{r}
+data_clean2$inflation_correct <- ifelse(data_clean2$inflation_knowledge == 3, 1, 0)
+
+data_clean2$interest_correct <- ifelse(data_clean2$interest_knowledge == 102, 1, 0)
+
+data_clean2$compound_correct <- ifelse(data_clean2$compound_interest_knowledge == 2, 1, 0)
+
+data_clean2$financial_knowledge_index <- rowMeans(
+  data_clean2[, c(
+    "inflation_correct",
+    "interest_correct",
+    "compound_correct"
+  )],
+  na.rm = TRUE
+)
+
+summary(data_clean2$financial_knowledge_index)
+```
+
+The financial knowledge index ranges between 0 and 1, where higher values indicate a greater proportion of correct answers across the financial literacy questions.
+
+The average score (mean ≈ 0.62) suggests that, on average, respondents correctly answered around 62% of the financial knowledge questions. This indicates a moderate level of financial literacy within the sample, with variation across individuals.
+
+The distribution shows that while some individuals demonstrate full understanding, others exhibit limited financial knowledge, which supports the need to consider both knowledge and behavioural factors in explaining financial vulnerability.
+
+### - 1.7iv. Build Digital Financial Engagement -To capture the behavioural dimension of financial capability, we construct a digital financial engagement index based on individuals’ use of digital financial tools. The selected variables represent participation in digital financial activities and are measured as binary indicators. These are combined into an index reflecting the extent of digital engagement, where higher values indicate greater use of financial technology.
+
+```{r}
+data_clean2$digital_engagement_index <- rowMeans(
+  data_clean2[, c("qp8_1", "qp8_2", "qp8_3", "qp8_4", "qp8_5")],
+  na.rm = TRUE
+)
+
+summary(data_clean2$digital_engagement_index)
+```
+
+
+The digital financial engagement index ranges between 0 and 1, where higher values indicate greater use of digital financial tools.
+
+The distribution shows a low average level of engagement (mean ≈ 0.12), with the majority of individuals clustered at or near zero. This suggests that most respondents exhibit limited interaction with digital financial services, while only a small proportion actively engage with such tools.
+
+This finding highlights that digital financial engagement is not widespread within the sample, making it an important behavioural dimension to include when assessing financial capability.
+
+
+### - 1.7v. We build a full Financial Capability - To construct a comprehensive measure of financial capability, we combine objective financial knowledge, self-assessed financial knowledge, and digital financial engagement into a single index. Because these components are measured on different scales, self-assessed knowledge is first normalized to ensure comparability. The standardized components are then aggregated to form a composite index representing overall financial capability. This approach captures cognitive, perceptual, and behavioural dimensions of financial capability.
+
+```{r}
+data_clean2$self_assessed_scaled <- (data_clean2$self_assessed_knowledge - 1) / (5 - 1)
+
+data_clean2$financial_capability_index <- rowMeans(
+  data_clean2[, c(
+    "financial_knowledge_index",
+    "self_assessed_scaled",
+    "digital_engagement_index"
+  )],
+  na.rm = TRUE
+)
+
+summary(data_clean2$financial_capability_index)
+```
+
+The financial capability index ranges between 0 and 1, where higher values indicate greater overall capability, combining financial knowledge, self-assessed understanding, and digital engagement.
+
+The average level of financial capability is moderate (mean ≈ 0.47), suggesting that individuals exhibit a balanced mix of strengths and weaknesses across these dimensions. The relatively low number of missing values indicates that the index is well-defined for the majority of the sample.
+
+This composite measure provides a comprehensive representation of financial capability, capturing not only what individuals know, but also how confident they are and how actively they engage with financial tools.
+
+
+###- 1.7vi. The summary statistics provide an overview of financial capability levels, but they do not fully capture how capability is distributed across individuals. To better understand whether respondents generally appear financially capable, we visualize the distribution of the financial capability index. This allows us to assess whether capability is widespread in the sample before examining its relationship with financial vulnerability.
+
+
+```{r}
+ggplot(data_clean2, aes(x = financial_capability_index)) +
+  geom_histogram(bins = 30, fill = "#7FCDBB", color = "white") +
+  labs(
+    title = "Distribution of Financial Capability",
+    x = "Financial Capability Index",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+```
+
+Figure B shows the distribution of financial capability across respondents. The distribution indicates that a substantial proportion of individuals exhibit moderate levels of financial capability, with many observations clustered around the middle of the index. This suggests that financial knowledge, confidence, and digital engagement are present among a large share of the population.
+
+Importantly, this creates a reasonable expectation that individuals who appear financially capable should be less financially vulnerable. The following analysis investigates whether this expectation holds when financial capability is compared directly with financial vulnerability.
+
+## - 1.8i. While the distributions of financial vulnerability and financial capability provide useful insights individually, they do not reveal how the two variables relate to each other. To directly assess whether higher financial capability is associated with lower financial vulnerability, we plot the two variables together and examine their relationship visually.
+
+```{r}
+ggplot(data_clean2, aes(x = financial_capability_index, y = financial_vulnerability_index)) +
+  geom_point(alpha = 0.5, color = "#08519C") +
+  geom_smooth(method = "lm", se = FALSE, color = "#D7301F", size = 1.2) +
+  labs(
+    title = "Financial Capability and Financial Vulnerability",
+    x = "Financial Capability Index",
+    y = "Financial Vulnerability Index"
+  ) +
+  theme_minimal()
+```
+
+Figure C presents the relationship between financial capability and financial vulnerability. The scatterplot shows a wide dispersion of observations across all levels of capability, with no visible downward pattern indicating that higher capability leads to lower vulnerability. The fitted regression line is nearly flat, reinforcing the absence of a meaningful relationship between the two variables.
+
+This visual evidence suggests that individuals who appear financially capable are not necessarily less vulnerable in practice. The lack of a clear pattern challenges the expectation that financial capability alone provides protection against financial difficulties and motivates a more formal statistical assessment using correlation analysis.
+
+### - 1.8ii. Analysis : (i) - Correlation: While the scatterplot provides a visual indication of the relationship between financial capability and financial vulnerability, a more precise assessment requires a statistical measure of association. To quantify the strength and direction of this relationship, we compute the correlation coefficient between the two indices.
+
+```{r}
+cor(data_clean2$financial_capability_index,
+    data_clean2$financial_vulnerability_index,
+    use = "complete.obs")
+```
+
+The computed correlation between financial capability and financial vulnerability is approximately 0.003, indicating an almost zero linear association between the two variables. This confirms the visual evidence from Figure C, where no clear relationship was observed.
+
+In practical terms, this suggests that higher levels of financial capability are not associated with lower financial vulnerability. The result challenges the conventional expectation that financially capable individuals are better protected from financial difficulties, and it motivates further analysis using regression models that control for additional factors such as income, age, and gender.
+
+### - 1.8iii.  Regression Analysis - To formally evaluate the research question, we test whether financial capability is associated with financial vulnerability using a regression framework. The hypotheses are defined as follows: Null hypothesis (H₀): Financial capability has no association with financial vulnerability. Alternative hypothesis (H₁): Financial capability is associated with financial vulnerability. By estimating this model and examining the statistical significance of the financial capability coefficient, we determine whether financial capability provides protection against financial vulnerability.
+
+```{r}
+model_capability <- lm(financial_vulnerability_index ~ 
+                         financial_capability_index + 
+                         age + income + gender,
+                       data = data_clean2)
+
+summary(model_capability)
+```
+The regression results show that financial capability is not statistically significant (coefficient = 0.0386, p = 0.607). This indicates that, after controlling for age, income, and gender, financial capability does not have a meaningful association with financial vulnerability.
+
+Hypothesis testing
+Null hypothesis (H₀): Financial capability has no association with financial vulnerability
+Result: Fail to reject H₀
+Alternative hypothesis (H₁): Financial capability is associated with financial vulnerability
+Result: Not supported
+
+This implies that financial capability, even when measured comprehensively (including knowledge, confidence, and digital engagement), does not significantly explain differences in financial vulnerability.
+It means:
+
+Financial capability is not sufficient to protect individuals from financial vulnerability.
+
+### - 1.8iv. The main regression shows that income is significantly associated with financial vulnerability. To support this result visually, we compare the distribution of financial vulnerability across income groups. This helps show whether vulnerability differs meaningfully between lower- and higher-income respondents.
+
+```{r}
+ggplot(data_clean2 %>% filter(!is.na(income)),
+       aes(x = factor(income), y = financial_vulnerability_index)) +
+  geom_boxplot(fill = "#08519C", color = "white") +
+  labs(
+    title = "Financial Vulnerability Across Income Groups",
+    x = "Income Group",
+    y = "Financial Vulnerability Index"
+  ) +
+  theme_minimal()
+```
+
+Figure D illustrates the distribution of financial vulnerability across income groups. A clear pattern emerges: individuals in higher income categories exhibit lower levels of financial vulnerability, while those in lower income groups show higher and more dispersed vulnerability.
+
+This visual pattern is consistent with the regression results, where income was found to have a strong and statistically significant negative effect on financial vulnerability. It indicates that individuals with greater financial resources are better able to manage financial shocks and maintain stability.
+
+Importantly, this finding suggests that while financial capability reflects knowledge and engagement, it is income that provides a more direct and tangible form of protection against financial vulnerability.
+
+### - 1.8v. To further examine whether the effect of financial capability depends on individuals’ economic conditions, we introduce an interaction between financial capability and income. This allows us to assess whether financial capability provides protection against financial vulnerability only at certain income levels, rather than uniformly across all individuals.
+
+```{r}
+model_interaction <- lm(financial_vulnerability_index ~ 
+                         financial_capability_index * income + 
+                         age + gender,
+                       data = data_clean2)
+
+summary(model_interaction)
+```
+
+The interaction model shows that the interaction between financial capability and income is not statistically significant (coefficient = 0.0417, p = 0.717). This indicates that the effect of financial capability on financial vulnerability does not vary across income levels.
+
+In other words, financial capability does not provide protection against financial vulnerability for either low-income or high-income individuals.
+
+While income itself remains negative and statistically significant, suggesting that higher income reduces financial vulnerability, financial capability continues to have no meaningful effect, both independently and in interaction with income.
+
+###- 1.8vi. To further investigate why financial capability does not translate into lower financial vulnerability, we introduce a measure of overconfidence. Overconfidence is defined as the gap between individuals’ self-assessed financial knowledge and their actual financial knowledge. This captures the extent to which individuals may overestimate their financial competence. We test whether this mismatch is associated with higher financial vulnerability
+
+```{r}
+data_clean2$overconfidence_gap <- 
+  data_clean2$self_assessed_scaled - data_clean2$financial_knowledge_index
+
+model_overconfidence <- lm(financial_vulnerability_index ~ 
+                             overconfidence_gap + 
+                             age + income + gender,
+                           data = data_clean2)
+
+summary(model_overconfidence)
+```
+
+The regression results show that overconfidence is positive and statistically significant (coefficient = 0.1323, p < 0.001), indicating that individuals who overestimate their financial knowledge tend to exhibit higher levels of financial vulnerability, even after controlling for age, income, and gender.
+
+Hypothesis testing
+Null hypothesis (H₀): Overconfidence has no association with financial vulnerability
+Result: Rejected
+Alternative hypothesis (H₁): Overconfidence is positively associated with financial vulnerability
+Result: Supported
+This result provides clear evidence that:
+
+It is not financial capability itself that protects individuals, but how accurately individuals assess their own capability.
+
+While financial capability was found to have no significant effect, overconfidence—defined as the mismatch between perceived and actual knowledge—has a significant positive effect on financial vulnerability.
+
+This suggests that individuals who believe they are financially knowledgeable, but lack corresponding actual knowledge, are more likely to make poor financial decisions and become vulnerable.
+
+###- 1.8vii. The regression results show that overconfidence is significantly associated with financial vulnerability. To support this finding visually, we plot the overconfidence gap against the financial vulnerability index. This allows us to examine whether individuals who overestimate their financial knowledge tend to show higher vulnerability in the data.
+
+```{r}
+ggplot(data_clean2, aes(x = overconfidence_gap, y = financial_vulnerability_index)) +
+  geom_point(alpha = 0.5, color = "#08519C") +
+  geom_smooth(method = "lm", se = FALSE, color = "#D7301F", size = 1.2) +
+  labs(
+    title = "Overconfidence and Financial Vulnerability",
+    x = "Overconfidence Gap",
+    y = "Financial Vulnerability Index"
+  ) +
+  theme_minimal()
+```
+
+Figure E illustrates the relationship between overconfidence, measured as the gap between perceived and actual financial knowledge, and financial vulnerability. The scatterplot shows a slight upward trend, indicating that individuals who overestimate their financial knowledge tend to exhibit higher levels of financial vulnerability.
+
+Although the relationship is not sharply pronounced, the positive slope of the fitted line is consistent with the regression results, where overconfidence was found to be statistically significant. This suggests that individuals who believe they are more financially knowledgeable than they actually are may make suboptimal financial decisions, leading to greater vulnerability.
+
+Taken together with the earlier findings, this result provides evidence of a potential “illusion of financial control”: individuals who appear financially capable—particularly in terms of self-assessed knowledge—may not be adequately protected from financial vulnerability due to miscalibration between perceived and actual capability.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
